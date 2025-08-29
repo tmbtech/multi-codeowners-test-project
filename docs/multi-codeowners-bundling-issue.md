@@ -105,5 +105,13 @@ Once the fix is published, verify with:
 ---
 
 **Report Generated**: 2025-08-29  
-**Issue Status**: 🔴 Blocking all workflows using v1 tag  
-**Severity**: High - Action completely non-functional
+**Issue Status**: ✅ **RESOLVED** - Fixed in v1.0.1  
+**Resolution**: Upstream released `tmbtech/multi-codeowners@v1.0.1` with properly bundled dependencies
+
+## ✅ Resolution Update
+
+**Date Resolved**: 2025-08-29  
+**Fixed Version**: `v1.0.1`  
+**Upstream Issue**: [tmbtech/multi-codeowners#2](https://github.com/tmbtech/multi-codeowners/issues/2) (closed)
+
+The upstream maintainers quickly addressed the bundling issue and released a patched version. All workflows should now use `tmbtech/multi-codeowners@v1.0.1` instead of the broken `v1` tag.

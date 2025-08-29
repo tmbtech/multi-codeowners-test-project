@@ -1,11 +1,7 @@
-name: New Code Owner Enforcement
+name: Code Owner Enforcement
 
-# This is a temporary implementation to replace the broken tmbtech/multi-codeowners@v1 action
-# which fails with "Cannot find module '@actions/core'" due to missing bundled dependencies.
-# 
-# See: docs/multi-codeowners-bundling-issue.md for full technical analysis
-# 
-# TODO: Replace with fixed upstream action once available (e.g., @v1.0.1)
+# Updated to use the fixed upstream action tmbtech/multi-codeowners@v1.0.1
+# which resolves the bundling issue reported in tmbtech/multi-codeowners#2
 
 on:
   pull_request:
@@ -15,12 +11,13 @@ on:
 
 permissions:
   contents: read
-  pull-requests: read
+  pull-requests: write
   checks: write
+  issues: write
 
 jobs:
-  codeowner-enforcement:
-    name: Enforce Code Owner Approval
+  code-owners-check:
+    name: Check Code Owners Approvals
     runs-on: ubuntu-latest
     
     # Skip draft PRs and if labeled to skip
@@ -31,128 +28,20 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      
+      - name: Run multi-codeowners enforcement
+        uses: tmbtech/multi-codeowners@v1.0.1
         with:
-          # Need fetch-depth > 1 to compare against base branch
-          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
       
-      - name: Check CODEOWNERS file exists
-        run: |
-          if [[ ! -f ".github/CODEOWNERS" ]]; then
-            echo "❌ .github/CODEOWNERS file not found"
-            exit 1
-          fi
-          echo "✅ CODEOWNERS file found"
-      
-      - name: Get changed files
-        id: changed-files
-        run: |
-          # Get the list of changed files in this PR
-          BASE_SHA="${{ github.event.pull_request.base.sha }}"
-          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
-          
-          echo "Comparing $BASE_SHA...$HEAD_SHA"
-          CHANGED_FILES=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
-          
-          echo "Changed files:"
-          echo "$CHANGED_FILES"
-          
-          # Export for next step (encode to handle multi-line)
-          echo "CHANGED_FILES<<EOF" >> $GITHUB_OUTPUT
-          echo "$CHANGED_FILES" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-      - name: Parse CODEOWNERS and check approvals  
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          CHANGED_FILES: ${{ steps.changed-files.outputs.CHANGED_FILES }}
-        run: |
-          echo "🔍 Analyzing code owner requirements..."
-          
-          # Simple CODEOWNERS parsing (handles basic patterns)
-          # For production use, the full tmbtech/multi-codeowners action would be better
-          
-          # Get required owners for changed files
-          REQUIRED_OWNERS=""
-          while IFS= read -r file; do
-            [[ -z "$file" ]] && continue
-            
-            echo "Checking ownership for: $file"
-            
-            # Simple pattern matching against CODEOWNERS
-            # This is a simplified version - the full action does more sophisticated matching
-            while IFS= read -r codeowner_line; do
-              # Skip comments and empty lines
-              [[ "$codeowner_line" =~ ^#.*$ ]] && continue
-              [[ -z "$codeowner_line" ]] && continue
-              
-              # Extract pattern and owners
-              read -r pattern owners <<< "$codeowner_line"
-              
-              # Simple glob matching (basic implementation)
-              if [[ "$file" == $pattern ]] || [[ "$pattern" == "*" ]] || [[ "$file" == *"${pattern#*.}"* ]]; then
-                echo "  Matched pattern: $pattern -> $owners"
-                REQUIRED_OWNERS="$REQUIRED_OWNERS $owners"
-              fi
-            done < .github/CODEOWNERS
-          done <<< "$CHANGED_FILES"
-          
-          # Remove duplicates and sort
-          REQUIRED_OWNERS=$(echo "$REQUIRED_OWNERS" | tr ' ' '\n' | sort -u | tr '\n' ' ')
-          echo "Required owners: $REQUIRED_OWNERS"
-          
-          # Get PR reviews
-          echo "🔍 Checking PR approvals..."
-          APPROVING_USERS=$(gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER/reviews" \
-            --jq '.[] | select(.state == "APPROVED") | .user.login' | sort -u)
-          
-          echo "Users who approved:"
-          echo "$APPROVING_USERS"
-          
-          # For this simplified version, we'll do basic team/user checking
-          # The full action would do proper GitHub API team membership verification
-          
-          MISSING_APPROVALS=""
-          for required_owner in $REQUIRED_OWNERS; do
-            # Remove @ symbol for comparison
-            clean_owner="${required_owner#@}"
-            
-            # Check if any approving user matches (simplified check)
-            if ! echo "$APPROVING_USERS" | grep -q "$clean_owner"; then
-              MISSING_APPROVALS="$MISSING_APPROVALS $required_owner"
-            fi
-          done
-          
-          if [[ -n "$MISSING_APPROVALS" ]]; then
-            echo "❌ Missing required approvals from:$MISSING_APPROVALS"
-            echo "::error::Code owner approval required from:$MISSING_APPROVALS"
-            
-            # Post comment to PR
-            gh api "repos/${{ github.repository }}/issues/$PR_NUMBER/comments" \
-              --method POST \
-              --field body="## ⏳ Code Owner Approval Required
-
-This PR modifies files that require approval from specific code owners.
-
-**Missing approvals from:**
-$MISSING_APPROVALS
-
-Please request reviews from the required code owners.
-
----
-*This is a temporary implementation while we wait for [tmbtech/multi-codeowners](https://github.com/tmbtech/multi-codeowners) action to be fixed.*"
-            
-            exit 1
-          else
-            echo "✅ All required code owners have approved!"
-            
-            # Post success comment
-            gh api "repos/${{ github.repository }}/issues/$PR_NUMBER/comments" \
-              --method POST \
-              --field body="## ✅ Code Owner Approvals Complete
-
-All required code owners have approved this PR. Ready to merge!
-
----
-*This is a temporary implementation while we wait for [tmbtech/multi-codeowners](https://github.com/tmbtech/multi-codeowners) action to be fixed.*"
-          fi
+      - name: Comment on success
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '🎉 **All required code owners have approved this PR!** ✅\n\nThis PR can now be merged safely.'
+            });

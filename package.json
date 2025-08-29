@@ -1,0 +1,30 @@
+{
+  "name": "multi-codeowners-test-project",
+  "version": "1.0.0",
+  "description": "Test project for multi-codeowners GitHub Action",
+  "packageManager": "yarn@4.9.4",
+  "private": true,
+  "scripts": {
+    "test:local": "act pull_request -j integration-test",
+    "test:local:positive": "act pull_request -j integration-test --matrix scenario:positive",
+    "test:local:negative": "act pull_request -j integration-test --matrix scenario:negative",
+    "test:local:unit": "act pull_request -j integration-test --matrix scenario:unit-tests",
+    "validate": "echo 'Validating test project structure...' && ls -la .github/CODEOWNERS src/ test-config.json"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YOUR_USERNAME/multi-codeowners-test-project.git"
+  },
+  "keywords": [
+    "github-actions",
+    "codeowners",
+    "testing",
+    "pull-requests",
+    "approval-enforcement"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "@github/act": "^1.0.0"
+  }
+}

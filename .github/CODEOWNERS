@@ -1,0 +1,27 @@
+# Test CODEOWNERS file for multi-codeowners action testing
+# These users/teams don't need to exist - they're used for pattern matching
+
+# Global owners (fallback)
+* @global-team
+
+# Frontend files - owned by frontend team
+*.js @frontend-team
+*.ts @frontend-team
+*.tsx @frontend-team
+src/ @frontend-team
+
+# Documentation - owned by docs team
+*.md @docs-team
+/docs/ @docs-team
+
+# Configuration files - require multiple teams
+*.json @frontend-team @devops-team
+*.yml @devops-team
+*.yaml @devops-team
+
+# Critical files requiring multiple approvals
+package.json @frontend-team @devops-team @security-team
+yarn.lock @frontend-team @devops-team
+
+# GitHub configuration
+.github/ @devops-team @security-team

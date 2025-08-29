@@ -1,0 +1,32 @@
+{
+  "name": "multi-codeowners-test-project",
+  "description": "Test configuration for multi-codeowners action",
+  "version": "1.0.0",
+  "testScenarios": {
+    "positive": {
+      "description": "Single owner group required - should pass with approval",
+      "files": ["README.md"],
+      "requiredOwners": ["@docs-team"],
+      "expectedResult": "pass"
+    },
+    "negative": {
+      "description": "Multiple owner groups required - should fail without all approvals",
+      "files": ["src/index.js", "package.json"],
+      "requiredOwners": ["@frontend-team", "@devops-team", "@security-team"],
+      "expectedResult": "fail"
+    },
+    "complex": {
+      "description": "Mixed file types requiring different owners",
+      "files": ["src/index.js", "README.md", "test-config.json"],
+      "requiredOwners": ["@frontend-team", "@docs-team", "@devops-team"],
+      "expectedResult": "fail"
+    }
+  },
+  "owners": {
+    "@frontend-team": "Frontend development team",
+    "@docs-team": "Documentation team", 
+    "@devops-team": "DevOps and infrastructure team",
+    "@security-team": "Security and compliance team",
+    "@global-team": "Global owners (fallback)"
+  }
+}

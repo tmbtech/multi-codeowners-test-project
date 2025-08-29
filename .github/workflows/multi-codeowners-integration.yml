@@ -1,0 +1,142 @@
+name: Multi-CODEOWNERS Action Integration Tests
+
+on:
+  pull_request:
+    branches: [ main, master ]
+    types: [opened, synchronize, ready_for_review]
+  pull_request_review:
+    types: [submitted, dismissed]  
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+  issues: write
+
+jobs:
+  # Integration test with different scenarios
+  integration-test:
+    name: Integration Test (${{ matrix.scenario }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario: [positive, negative, unit-tests]
+    
+    steps:
+      - name: Checkout test project
+        uses: actions/checkout@v4
+
+      - name: Checkout multi-codeowners action
+        uses: actions/checkout@v4
+        with:
+          path: ./.github/actions/multi-codeowners
+          repository: ${{ github.repository_owner }}/multi-codeowners
+          # For testing, you might want to use a specific ref:
+          # ref: main
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+          cache-dependency-path: './.github/actions/multi-codeowners/yarn.lock'
+
+      - name: Install action dependencies
+        working-directory: ./.github/actions/multi-codeowners
+        run: |
+          yarn install --frozen-lockfile
+          
+      # Unit tests - run the action's own test suite
+      - name: Run action unit tests
+        if: matrix.scenario == 'unit-tests'
+        working-directory: ./.github/actions/multi-codeowners
+        run: |
+          yarn test
+          yarn lint
+
+      - name: Build action
+        working-directory: ./.github/actions/multi-codeowners
+        run: |
+          yarn build
+          
+      - name: Verify action build
+        working-directory: ./.github/actions/multi-codeowners
+        run: |
+          if [ ! -f "dist/index.js" ]; then
+            echo "❌ Action build failed - dist/index.js not found"
+            exit 1
+          fi
+          echo "✅ Action built successfully"
+
+      # Skip action execution for unit-tests scenario
+      - name: Run multi-codeowners action
+        if: matrix.scenario != 'unit-tests'
+        id: owners
+        uses: ./.github/actions/multi-codeowners
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: ${{ matrix.scenario == 'negative' }}
+
+      # Validation steps for integration scenarios
+      - name: Validate positive scenario outcome
+        if: matrix.scenario == 'positive'
+        run: |
+          echo "🔍 Validating positive scenario..."
+          if [[ "${{ steps.owners.outcome }}" != "success" ]]; then
+            echo "❌ Expected success but action returned: ${{ steps.owners.outcome }}"
+            echo "This could indicate a problem with the action logic or test setup."
+            exit 1
+          fi
+          echo "✅ Positive scenario passed as expected"
+
+      - name: Validate negative scenario outcome  
+        if: matrix.scenario == 'negative'
+        run: |
+          echo "🔍 Validating negative scenario..."
+          # In negative scenario, we expect the action to fail (missing approvals)
+          if [[ "${{ steps.owners.outcome }}" == "success" ]]; then
+            echo "❌ Expected failure but action succeeded"
+            echo "This suggests the action isn't properly blocking when approvals are missing."
+            exit 1
+          fi
+          echo "✅ Negative scenario failed as expected (missing required approvals)"
+
+      # Report results
+      - name: Report test results
+        if: matrix.scenario != 'unit-tests'
+        run: |
+          echo "## 📊 Test Results for ${{ matrix.scenario }} scenario" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Action outcome**: ${{ steps.owners.outcome }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Expected for ${{ matrix.scenario }}**: ${{ matrix.scenario == 'positive' && 'success' || 'failure' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Result**: ${{ (matrix.scenario == 'positive' && steps.owners.outcome == 'success') || (matrix.scenario == 'negative' && steps.owners.outcome == 'failure') && '✅ PASS' || '❌ FAIL' }}" >> $GITHUB_STEP_SUMMARY
+
+  # Summary job to check all scenarios
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: integration-test
+    if: always()
+    
+    steps:
+      - name: Check test results
+        run: |
+          echo "## 🎯 Multi-CODEOWNERS Action Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ "${{ needs.integration-test.result }}" == "success" ]]; then
+            echo "### ✅ All tests passed!" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The multi-codeowners action is working correctly:" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ Unit tests pass" >> $GITHUB_STEP_SUMMARY  
+            echo "- ✅ Positive scenario (sufficient approvals) passes" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ Negative scenario (missing approvals) correctly fails" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ Action builds successfully" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ❌ Some tests failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Please check the individual test results above for details." >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi

@@ -1,0 +1,66 @@
+name: Code Owners Approval Enforcement
+
+# This workflow demonstrates the multi-codeowners action in action
+# It runs on PRs and enforces multi-owner approval requirements
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+  pull_request_review:
+    types: [submitted, dismissed]
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+  issues: write
+
+jobs:
+  code-owners-check:
+    name: Check Code Owners Approvals
+    runs-on: ubuntu-latest
+    
+    # Skip for the integration test workflow to avoid conflicts
+    if: >-
+      github.workflow != 'Multi-CODEOWNERS Action Integration Tests' &&
+      !contains(github.event.pull_request.labels.*.name, 'skip-owners-check')
+
+    steps:
+      - name: Checkout test project
+        uses: actions/checkout@v4
+
+      - name: Checkout multi-codeowners action
+        uses: actions/checkout@v4
+        with:
+          path: ./.github/actions/multi-codeowners
+          repository: ${{ github.repository_owner }}/multi-codeowners
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+          cache-dependency-path: './.github/actions/multi-codeowners/yarn.lock'
+
+      - name: Install action dependencies and build
+        working-directory: ./.github/actions/multi-codeowners
+        run: |
+          yarn install --frozen-lockfile
+          yarn build
+
+      - name: Run multi-codeowners enforcement
+        uses: ./.github/actions/multi-codeowners
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Comment on success
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '🎉 **All required code owners have approved this PR!** ✅\n\nThis PR can now be merged safely.'
+            });

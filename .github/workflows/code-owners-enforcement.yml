@@ -29,27 +29,8 @@ jobs:
       - name: Checkout test project
         uses: actions/checkout@v4
 
-      - name: Checkout multi-codeowners action
-        uses: actions/checkout@v4
-        with:
-          path: ./.github/actions/multi-codeowners
-          repository: ${{ github.repository_owner }}/multi-codeowners
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'yarn'
-          cache-dependency-path: './.github/actions/multi-codeowners/yarn.lock'
-
-      - name: Install action dependencies and build
-        working-directory: ./.github/actions/multi-codeowners
-        run: |
-          yarn install --frozen-lockfile
-          yarn build
-
       - name: Run multi-codeowners enforcement
-        uses: ./.github/actions/multi-codeowners
+        uses: tmbtech/multi-codeowners@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 

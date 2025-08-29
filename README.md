@@ -4,12 +4,14 @@ This repository is designed to test the [multi-codeowners](../multi-codeowners/)
 
 ## 🎯 Purpose
 
-This test project validates that the multi-codeowners action correctly:
+This test project validates that the **published** multi-codeowners action (`tmbtech/multi-codeowners@v1`) correctly:
 - Parses CODEOWNERS files
 - Maps changed files to required owner groups  
 - Enforces approval requirements from ALL relevant code owner groups
 - Creates appropriate GitHub status checks and PR comments
 - Blocks merging when approvals are missing
+
+> **Note**: The pipelines use the published GitHub Action from the marketplace rather than building from source, ensuring we test the actual released version that users would consume.
 
 ## 📁 Test File Structure
 
@@ -25,10 +27,10 @@ The repository contains sample files that match different CODEOWNERS rules:
 
 ### Automated Pipeline
 
-The GitHub Actions pipeline runs automatically on pull requests and tests both scenarios:
+The GitHub Actions pipeline runs automatically on pull requests and tests both scenarios using the published action:
 
 ```yaml
-# Triggers on pull requests to main branch
+# Uses published action: tmbtech/multi-codeowners@v1
 name: Multi-CODEOWNERS Integration Tests
 ```
 

@@ -28,22 +28,25 @@ jobs:
       - name: Checkout test project
         uses: actions/checkout@v4
 
-      - name: Checkout multi-codeowners action
+      # For unit tests scenario, we still need to checkout and test the source
+      - name: Checkout multi-codeowners action (for unit tests)
+        if: matrix.scenario == 'unit-tests'
         uses: actions/checkout@v4
         with:
           path: ./.github/actions/multi-codeowners
-          repository: ${{ github.repository_owner }}/multi-codeowners
-          # For testing, you might want to use a specific ref:
-          # ref: main
+          repository: tmbtech/multi-codeowners
+          ref: main
 
-      - name: Setup Node.js
+      - name: Setup Node.js (for unit tests)
+        if: matrix.scenario == 'unit-tests'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'yarn'
           cache-dependency-path: './.github/actions/multi-codeowners/yarn.lock'
 
-      - name: Install action dependencies
+      - name: Install action dependencies (for unit tests)
+        if: matrix.scenario == 'unit-tests'
         working-directory: ./.github/actions/multi-codeowners
         run: |
           yarn install --frozen-lockfile
@@ -56,12 +59,14 @@ jobs:
           yarn test
           yarn lint
 
-      - name: Build action
+      - name: Build action (for unit tests)
+        if: matrix.scenario == 'unit-tests'
         working-directory: ./.github/actions/multi-codeowners
         run: |
           yarn build
           
-      - name: Verify action build
+      - name: Verify action build (for unit tests)
+        if: matrix.scenario == 'unit-tests'
         working-directory: ./.github/actions/multi-codeowners
         run: |
           if [ ! -f "dist/index.js" ]; then
@@ -70,11 +75,11 @@ jobs:
           fi
           echo "✅ Action built successfully"
 
-      # Skip action execution for unit-tests scenario
+      # Use published action for integration tests
       - name: Run multi-codeowners action
         if: matrix.scenario != 'unit-tests'
         id: owners
-        uses: ./.github/actions/multi-codeowners
+        uses: tmbtech/multi-codeowners@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: ${{ matrix.scenario == 'negative' }}

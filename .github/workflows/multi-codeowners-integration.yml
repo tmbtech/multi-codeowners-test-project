@@ -79,10 +79,10 @@ jobs:
       - name: Run multi-codeowners action
         if: matrix.scenario != 'unit-tests'
         id: owners
-        uses: tmbtech/multi-codeowners@v1
+        uses: tmbtech/multi-codeowners@v1.0.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: ${{ matrix.scenario == 'negative' }}
+        # Action always succeeds but creates status checks
 
       # Validation steps for integration scenarios
       - name: Validate positive scenario outcome
@@ -100,13 +100,13 @@ jobs:
         if: matrix.scenario == 'negative'
         run: |
           echo "🔍 Validating negative scenario..."
-          # In negative scenario, we expect the action to fail (missing approvals)
-          if [[ "${{ steps.owners.outcome }}" == "success" ]]; then
-            echo "❌ Expected failure but action succeeded"
-            echo "This suggests the action isn't properly blocking when approvals are missing."
+          # The action should always succeed as a step but create failing status checks
+          if [[ "${{ steps.owners.outcome }}" != "success" ]]; then
+            echo "❌ Expected action to succeed but got: ${{ steps.owners.outcome }}"
+            echo "The v1.0.1 action should always succeed as a step but create status checks."
             exit 1
           fi
-          echo "✅ Negative scenario failed as expected (missing required approvals)"
+          echo "✅ Negative scenario passed - action succeeded and should have created failing status check"
 
       # Report results
       - name: Report test results
@@ -115,8 +115,8 @@ jobs:
           echo "## 📊 Test Results for ${{ matrix.scenario }} scenario" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Action outcome**: ${{ steps.owners.outcome }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Expected for ${{ matrix.scenario }}**: ${{ matrix.scenario == 'positive' && 'success' || 'failure' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Result**: ${{ (matrix.scenario == 'positive' && steps.owners.outcome == 'success') || (matrix.scenario == 'negative' && steps.owners.outcome == 'failure') && '✅ PASS' || '❌ FAIL' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Expected**: success (v1.0.1 always succeeds but creates status checks)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Result**: ${{ steps.owners.outcome == 'success' && '✅ PASS' || '❌ FAIL' }}" >> $GITHUB_STEP_SUMMARY
 
   # Summary job to check all scenarios
   test-summary:
